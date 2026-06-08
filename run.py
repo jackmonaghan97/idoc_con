@@ -1,5 +1,5 @@
 
-from shared import import_duckdb, main
+from idoc_con.shared import import_duckdb, main
 from boto3.session import Session
 import boto3
 import pandas as pd

@@ -1,0 +1,14 @@
+name = "datasets-worker"
+main = "src/index.mjs"
+compatibility_date = "2026-06-06"
+
+account_id = "4963119323f714c7a86e23413113d3dc"
+
+[[routes]]
+pattern = "jack-monaghan.com/datasets*"
+zone_id = "4637f13898b7cbdd9d1df9d8448b7ca7"
+
+[[r2_buckets]]
+binding = "DATASETS"
+bucket_name = "portfolio-data"
+preview_bucket_name = "portfolio-data"

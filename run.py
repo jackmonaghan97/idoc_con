@@ -1,5 +1,5 @@
-
-from idoc_con.shared import import_duckdb, main
+#%%
+from shared import import_duckdb, main
 from boto3.session import Session
 import boto3
 import pandas as pd
@@ -31,7 +31,7 @@ files = [
     'prison-admission-data-sets.html'
     ]
 
-# for f in files: main(f)
+for f in files: main(f)
 files = [f.split('.')[0].replace('-', '_') for f in files]
 
 # connect
@@ -63,4 +63,4 @@ for name, df in results.items():
         "etag": head.get("ETag")
     })
 
-# %%
+ # %%

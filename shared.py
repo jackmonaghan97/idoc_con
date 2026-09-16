@@ -1,3 +1,4 @@
+#%%
 
 # import packages
 from csv import excel
@@ -146,7 +147,9 @@ def single_excel(excel_file : str) -> pd.DataFrame:
     b = response.content
     _df = pd.read_excel(io.BytesIO(b))  
     _df = header(_df)
-    _df = type_name(_df)  
+    _df = type_name(_df)
+    xls = pd.ExcelFile(io.BytesIO(b))
+    _df['record_dt'] = pd.to_datetime(xls.sheet_names[0].split(' ')[-1])      
 
     return _df
 
@@ -223,7 +226,6 @@ def import_duckdb(table_name, conn) -> pd.DataFrame:
 
     return pd.DataFrame(data = data, columns = col)
 
-
 def main(str_type : str) -> None:
 
     sql_name = str_type.split('.')[0].replace('-', '_')
@@ -238,3 +240,7 @@ def main(str_type : str) -> None:
         
         excel = single_excel(d)
         insert_table(excel, sql_name)
+
+
+
+# %%

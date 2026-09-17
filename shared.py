@@ -18,9 +18,16 @@ URL = 'https://idoc.illinois.gov/reportsandstatistics/'
 # prison-exit-data-sets.html
 # prison-admission-data-sets.html
 # prison-population-data-sets.html
+# parole-population-data-sets.html   (MSR / parole population, quarterly since June 2016)
+
+# files IDOC posted that should not be loaded
+SKIP = {
+    # identical to september-2018-parole-stock.xls (same people, latest MSR date 2018-09-28)
+    'september-2019-parole-stock-pop.xls',
+}
 
 NAMES = {
-            
+
     # basic
     'IDOC #'            : 'docnbr',
     'Name'              : 'fullname',
@@ -31,23 +38,39 @@ NAMES = {
     'Admission Type'    : 'admtyp',
     'Sentence Date'     : 'sntdt',
     'Sentencing County' : 'stnccty',
-            
+
     # admissions
     'Reception Center'  : 'recpcntr',
     'Admission Date'    : 'admitdt',
+    'Current Admission Date' : 'admitdt',   # parole files
 
     # population
-    'Actual Mandatory Supervised Release (MSR) Date' : 'actmsrdt', 
+    'Actual Mandatory Supervised Release (MSR) Date' : 'actmsrdt',
     'Actual Discharge Date' : 'actdisdt',
-    'Discharge Reason' : 'discrsn', 
+    'Discharge Reason' : 'discrsn',
     'Special Release Reason' :'sperlsrsn',
     'Releasing Institution' : 'relinst',
 
     # exits
     'Parent Institution' : 'prtinst',
-    'Custody Date': 'cstdt'}
+    'Custody Date': 'cstdt',
+
+    # parole (MSR) population - the MSR date header has had three spellings
+    'Mandatory Supervised Release (MSR) Date' : 'msrdt',
+    'MSR/Parole Date'           : 'msrdt',
+    'MSR/Parople Date'          : 'msrdt',      # IDOC typo, June 2021
+    'Projected Discharge Date'  : 'projdisdt',
+    'Veteran Status'            : 'veteran',
+    'Crime Class'               : 'crimeclass',
+    'Holding Offense Category'  : 'hofnscat',   # from Sept 2021 on
+    'Offense Type'              : 'offtype',    # from Sept 2021 on
+    'Sentence Years'            : 'sntyrs',
+    'Sentence Months'           : 'sntmos',
+    'Truth in Sentencing'       : 'tis',
+    'County of Residence'       : 'rescty',
+    'Residence Zip Code'        : 'reszip'}
 TYPES = {
-        
+
     # basic
     'docnbr' : str,
     'fullname' : str,
@@ -58,21 +81,34 @@ TYPES = {
     'admtyp' : str,
     'sntdt' : 'datetime64[ns]',
     'stnccty' : str,
-            
+
     # admissions
     'recpcntr' : str,
     'admitdt' : 'datetime64[ns]',
 
     # population
-    'actmsrdt' : 'datetime64[ns]', 
+    'actmsrdt' : 'datetime64[ns]',
     'actdisdt' : 'datetime64[ns]',
-    'discrsn' : str, 
+    'discrsn' : str,
     'sperlsrsn' : str,
     'relinst' : str,
 
     # exits
     'prtinst' : str,
-    'cstdt' : 'datetime64[ns]'}
+    'cstdt' : 'datetime64[ns]',
+
+    # parole (MSR) population
+    'msrdt' : 'datetime64[ns]',
+    'projdisdt' : 'datetime64[ns]',
+    'veteran' : str,
+    'crimeclass' : str,
+    'hofnscat' : str,
+    'offtype' : str,
+    'sntyrs' : str,
+    'sntmos' : str,
+    'tis' : str,
+    'rescty' : str,
+    'reszip' : str}
 
 def fetch_excels(str_type : str) -> None:
 
@@ -111,8 +147,8 @@ def header(_df : pd.DataFrame) -> pd.DataFrame:
 
 def type_name(_df) -> None:
         
+    _df.columns = _df.columns.str.replace(r'\s+', ' ', regex=True)   # 'Custody    Date', 'Residence Zip   Code'
     _df.rename(columns= {'Current Admission Type' : 'Admission Type'}, inplace = True)
-    _df.rename(columns= {'Custody    Date' : 'Custody Date'}, inplace = True)
     _df.columns = _df.columns.str.strip('3')
 
 
@@ -121,8 +157,16 @@ def type_name(_df) -> None:
     for c in date_col:
 
         wrong = _df[c]
+
+        # older files store dates as m/mm + dd + yyyy digits with no leading zero, so
+        # 1081956 (Jan 8 1956) would otherwise parse as Oct 8 1956 - pad to 8 digits first
+        digits = wrong.astype(str).str.replace(r'\.0$', '', regex=True)
+        wrong = wrong.where(~digits.str.fullmatch(r'\d{7,8}'), digits.str.zfill(8))
         correct = pd.to_datetime(wrong, format='%m%d%Y', errors='coerce')
-            
+
+        # a few typo years (3234, ...) overflow datetime64[ns]; treat them as missing
+        correct = correct.where(correct.dt.year.between(1900, 2100))
+
         _df[c] = correct
 
 
@@ -209,8 +253,10 @@ def insert_table(df_ : pd.DataFrame, table_name) -> None:
     con.register('df_view', df_)
     
     #### FUNCTION
+    # BY NAME: match columns by name, not position - older parole files lack
+    # 'Holding Offense Category' / 'Offense Type', which then load as NULL
     con.execute(f"""
-        INSERT INTO {table_name}
+        INSERT INTO {table_name} BY NAME
         SELECT * FROM df_view;
     """)
 
@@ -230,7 +276,7 @@ def main(str_type : str) -> None:
 
     sql_name = str_type.split('.')[0].replace('-', '_')
     print_type = str_type.split('-')[1][:-1].capitalize()
-    excel_urls = fetch_excels(str_type)
+    excel_urls = [u for u in fetch_excels(str_type) if os.path.basename(u) not in SKIP]
 
     excel = single_excel(excel_urls[0])
     generate_create_table_sql(excel, sql_name)

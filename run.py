@@ -28,7 +28,8 @@ os.makedirs(LOCAL_DIR, exist_ok=True)
 files = [
     'prison-population-data-sets.html',
     'prison-exit-data-sets.html',
-    'prison-admission-data-sets.html'
+    'prison-admission-data-sets.html',
+    'parole-population-data-sets.html'
     ]
 
 for f in files: main(f)
